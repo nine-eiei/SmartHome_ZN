@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS IoT Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg-core: #050a12;
+    --bg-panel: rgba(10,20,40,0.85);
+    --bg-glass: rgba(15,30,60,0.6);
+    --cyan: #00f5ff;
+    --cyan-dim: rgba(0,245,255,0.15);
+    --cyan-glow: 0 0 20px rgba(0,245,255,0.5);
+    --purple: #b44eff;
+    --purple-dim: rgba(180,78,255,0.15);
+    --green: #00ff88;
+    --green-dim: rgba(0,255,136,0.15);
+    --orange: #ff8c00;
+    --orange-dim: rgba(255,140,0,0.15);
+    --red: #ff3860;
+    --red-dim: rgba(255,56,96,0.15);
+    --text: #e0f0ff;
+    --text-muted: rgba(180,210,255,0.5);
+    --border: rgba(0,245,255,0.2);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-core);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0,245,255,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(180,78,255,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(0,255,136,0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Grid overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo-hex {
+    width: 52px; height: 52px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .logo-hex svg { filter: drop-shadow(0 0 12px var(--cyan)); }
+
+  .logo-text {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 26px;
+    letter-spacing: 4px;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 300;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 30px;
+    background: var(--green-dim);
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--green);
+  }
+
+  .pulse-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 10px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .clock {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    color: var(--cyan);
+    letter-spacing: 2px;
+  }
+
+  /* Section labels */
+  .section-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* Control grid */
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .control-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .control-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, var(--cyan));
+    opacity: 0.6;
+    transition: opacity 0.3s;
+  }
+
+  .control-card.active::before { opacity: 1; }
+  .control-card.active { border-color: rgba(0,245,255,0.4); box-shadow: var(--cyan-glow); }
+
+  .control-card[data-pin="V1"] { --card-accent: var(--purple); }
+  .control-card[data-pin="V1"].active { border-color: rgba(180,78,255,0.4); box-shadow: 0 0 20px rgba(180,78,255,0.4); }
+  .control-card[data-pin="V3"] { --card-accent: var(--orange); }
+  .control-card[data-pin="V3"].active { border-color: rgba(255,140,0,0.4); box-shadow: 0 0 20px rgba(255,140,0,0.4); }
+  .control-card[data-pin="V2"] { --card-accent: var(--red); }
+  .control-card[data-pin="V2"].active { border-color: rgba(255,56,96,0.4); box-shadow: 0 0 20px rgba(255,56,96,0.4); }
+
+  .card-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+    display: block;
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+
+  .card-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* Toggle Switch */
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .toggle-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.3s;
+  }
+
+  .toggle-label.on { color: var(--text); }
+
+  .toggle {
+    position: relative;
+    width: 56px; height: 28px;
+    cursor: pointer;
+  }
+
+  .toggle input { display: none; }
+
+  .toggle-track {
+    width: 100%; height: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    padding: 3px;
+  }
+
+  .toggle-thumb {
+    width: 20px; height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .toggle input:checked + .toggle-track {
+    background: var(--card-accent, var(--cyan));
+    border-color: transparent;
+    box-shadow: 0 0 16px var(--card-accent, var(--cyan));
+  }
+
+  .toggle input:checked + .toggle-track .toggle-thumb {
+    transform: translateX(28px);
+  }
+
+  /* Status row */
+  .status-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .status-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .status-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .status-card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .status-icon { font-size: 18px; }
+
+  /* Gauge */
+  .gauge-wrap {
+    position: relative;
+    width: 120px; height: 70px;
+    margin: 0 auto;
+  }
+
+  .gauge-svg { width: 100%; height: auto; overflow: visible; }
+
+  .gauge-value {
+    text-align: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  .gauge-unit {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 300;
+  }
+
+  /* LED status */
+  .led-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+  }
+
+  .led-circle {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.3), transparent 50%),
+                var(--red-dim);
+    border: 2px solid var(--red);
+    transition: all 0.4s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    position: relative;
+  }
+
+  .led-circle.active {
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.5), transparent 50%),
+                var(--green-dim);
+    border-color: var(--green);
+    box-shadow: 0 0 30px var(--green), 0 0 60px rgba(0,255,136,0.3);
+    animation: led-pulse 1.5s infinite;
+  }
+
+  @keyframes led-pulse {
+    0%, 100% { box-shadow: 0 0 20px var(--green), 0 0 40px rgba(0,255,136,0.2); }
+    50% { box-shadow: 0 0 40px var(--green), 0 0 80px rgba(0,255,136,0.4); }
+  }
+
+  .led-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+  }
+
+  .led-text.active { color: var(--green); }
+
+  /* SuperChart */
+  .chart-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    backdrop-filter: blur(12px);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+
+  .chart-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(0,245,255,0.05), transparent 70%);
+    pointer-events: none;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .chart-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+  }
+
+  .chart-legends {
+    display: flex;
+    gap: 20px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+
+  .chart-container {
+    height: 260px;
+    position: relative;
+  }
+
+  /* Notification toast */
+  .toast-container {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .toast {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 13px;
+    backdrop-filter: blur(16px);
+    animation: slideIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 300px;
+  }
+
+  .toast.success { border-color: rgba(0,255,136,0.4); color: var(--green); }
+  .toast.error { border-color: rgba(255,56,96,0.4); color: var(--red); }
+  .toast.info { border-color: rgba(0,245,255,0.4); color: var(--cyan); }
+
+  @keyframes slideIn {
+    from { transform: translateX(100px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Scanline effect */
+  .scanline {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    opacity: 0.3;
+    animation: scanline 4s linear infinite;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  @keyframes scanline {
+    from { top: -2px; }
+    to { top: 100vh; }
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .controls-grid { grid-template-columns: repeat(2, 1fr); }
+    .status-row { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 560px) {
+    .controls-grid { grid-template-columns: 1fr; }
+    .status-row { grid-template-columns: 1fr; }
+    .header { flex-direction: column; gap: 12px; align-items: flex-start; }
+  }
+
+  /* Corner decorations */
+  .corner-deco {
+    position: absolute;
+    width: 16px; height: 16px;
+    opacity: 0.4;
+  }
+  .corner-tl { top: 8px; left: 8px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+  .corner-tr { top: 8px; right: 8px; border-top: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+  .corner-bl { bottom: 8px; left: 8px; border-bottom: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+  .corner-br { bottom: 8px; right: 8px; border-bottom: 2px solid var(--cyan); border-right: 2px solid var(--cyan); }
+</style>
+</head>
+<body>
+
+<div class="scanline"></div>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-area">
+      <div class="logo-hex">
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <polygon points="26,2 48,14 48,38 26,50 4,38 4,14" fill="none" stroke="#00f5ff" stroke-width="1.5"/>
+          <polygon points="26,10 40,18 40,34 26,42 12,34 12,18" fill="rgba(0,245,255,0.08)" stroke="#00f5ff" stroke-width="1"/>
+          <text x="26" y="31" text-anchor="middle" fill="#00f5ff" font-family="Orbitron" font-size="12" font-weight="900">N</text>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">NEXUS</div>
+        <div class="logo-sub">IoT Control Matrix</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-badge">
+        <div class="pulse-dot"></div>
+        CONNECTED
+      </div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </div>
+
+  <!-- Controls Section -->
+  <div class="section-label">⬡ Device Control</div>
+  <div class="controls-grid">
+
+    <div class="control-card" data-pin="V0" id="card-V0">
+      <div class="corner-tl"></div><div class="corner-tr"></div>
+      <div class="corner-bl"></div><div class="corner-br"></div>
+      <span class="card-icon" style="color:var(--cyan)">💡</span>
+      <div class="card-name">Light Control</div>
+      <div class="toggle-wrap">
+        <span class="toggle-label" id="label-V0">OFF</span>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-V0" onchange="setPin('V0', this.checked ? 1 : 0)">
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="control-card" data-pin="V1" id="card-V1">
+      <div class="corner-tl"></div><div class="corner-tr"></div>
+      <div class="corner-bl"></div><div class="corner-br"></div>
+      <span class="card-icon" style="color:var(--purple)">🌀</span>
+      <div class="card-name">Fan Control</div>
+      <div class="toggle-wrap">
+        <span class="toggle-label" id="label-V1">OFF</span>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-V1" onchange="setPin('V1', this.checked ? 1 : 0)">
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="control-card" data-pin="V3" id="card-V3">
+      <div class="corner-tl"></div><div class="corner-tr"></div>
+      <div class="corner-bl"></div><div class="corner-br"></div>
+      <span class="card-icon" style="color:var(--orange)">❄️</span>
+      <div class="card-name">Air Control</div>
+      <div class="toggle-wrap">
+        <span class="toggle-label" id="label-V3">OFF</span>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-V3" onchange="setPin('V3', this.checked ? 1 : 0)">
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="control-card" data-pin="V2" id="card-V2">
+      <div class="corner-tl"></div><div class="corner-tr"></div>
+      <div class="corner-bl"></div><div class="corner-br"></div>
+      <span class="card-icon" style="color:var(--red)">🔐</span>
+      <div class="card-name">Security System</div>
+      <div class="toggle-wrap">
+        <span class="toggle-label" id="label-V2">OFF</span>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-V2" onchange="setPin('V2', this.checked ? 1 : 0)">
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Status Section -->
+  <div class="section-label">⬡ Sensor Matrix</div>
+  <div class="status-row">
+
+    <!-- Motion / LED -->
+    <div class="status-card">
+      <div class="status-card-header">
+        <div class="status-card-title">Motion Sensor</div>
+        <span class="status-icon">👁️</span>
+      </div>
+      <div class="led-status">
+        <div class="led-circle" id="led-circle">👤</div>
+        <div class="led-text" id="led-text">NO MOTION</div>
+        <div style="font-size:11px;color:var(--text-muted);text-align:center;line-height:1.5">
+          ต้องเปิด Security System<br>ก่อนถึงจะตรวจจับได้
+        </div>
+      </div>
+    </div>
+
+    <!-- Temperature -->
+    <div class="status-card">
+      <div class="status-card-header">
+        <div class="status-card-title">Temperature</div>
+        <span class="status-icon">🌡️</span>
+      </div>
+      <svg class="gauge-svg gauge-wrap" viewBox="0 0 120 70" style="display:block;margin:0 auto;width:140px;">
+        <defs>
+          <linearGradient id="tempGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#00f5ff"/>
+            <stop offset="50%" style="stop-color:#ff8c00"/>
+            <stop offset="100%" style="stop-color:#ff3860"/>
+          </linearGradient>
+        </defs>
+        <!-- Background arc -->
+        <path d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>
+        <!-- Value arc -->
+        <path id="temp-arc" d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="url(#tempGrad)" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 157"/>
+        <!-- Center text -->
+        <text id="temp-val" x="60" y="58" text-anchor="middle" fill="#00f5ff" font-family="Orbitron" font-size="18" font-weight="700">--</text>
+        <text x="60" y="70" text-anchor="middle" fill="rgba(180,210,255,0.5)" font-family="Inter" font-size="9">°C</text>
+        <text x="10" y="80" text-anchor="middle" fill="rgba(180,210,255,0.3)" font-family="Inter" font-size="8">0°</text>
+        <text x="110" y="80" text-anchor="middle" fill="rgba(180,210,255,0.3)" font-family="Inter" font-size="8">50°</text>
+      </svg>
+    </div>
+
+    <!-- Humidity -->
+    <div class="status-card">
+      <div class="status-card-header">
+        <div class="status-card-title">Humidity</div>
+        <span class="status-icon">💧</span>
+      </div>
+      <svg class="gauge-svg gauge-wrap" viewBox="0 0 120 70" style="display:block;margin:0 auto;width:140px;">
+        <defs>
+          <linearGradient id="humGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#00f5ff"/>
+            <stop offset="100%" style="stop-color:#b44eff"/>
+          </linearGradient>
+        </defs>
+        <path d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="8" stroke-linecap="round"/>
+        <path id="hum-arc" d="M 10 65 A 50 50 0 0 1 110 65" fill="none" stroke="url(#humGrad)" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 157"/>
+        <text id="hum-val" x="60" y="58" text-anchor="middle" fill="#b44eff" font-family="Orbitron" font-size="18" font-weight="700">--</text>
+        <text x="60" y="70" text-anchor="middle" fill="rgba(180,210,255,0.5)" font-family="Inter" font-size="9">%RH</text>
+        <text x="10" y="80" text-anchor="middle" fill="rgba(180,210,255,0.3)" font-family="Inter" font-size="8">0%</text>
+        <text x="110" y="80" text-anchor="middle" fill="rgba(180,210,255,0.3)" font-family="Inter" font-size="8">100%</text>
+      </svg>
+    </div>
+
+  </div>
+
+  <!-- SuperChart -->
+  <div class="section-label">⬡ SuperChart — Live Telemetry</div>
+  <div class="chart-card">
+    <div class="chart-header">
+      <div class="chart-title">ENVIRONMENTAL DATA STREAM</div>
+      <div class="chart-legends">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:linear-gradient(90deg,#00f5ff,#ff8c00)"></div>
+          Temperature (°C)
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:linear-gradient(90deg,#00f5ff,#b44eff)"></div>
+          Humidity (%RH)
+        </div>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="superChart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const TOKEN = 'zkX9MuvpFGED4kXOHHnLRNflN3YJh4C-';
+const BASE = 'https://blynk.cloud/external/api';
+
+// Chart setup
+const labels = [];
+const tempData = [];
+const humData = [];
+const MAX_POINTS = 30;
+
+const ctx = document.getElementById('superChart').getContext('2d');
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Temperature (°C)',
+        data: tempData,
+        borderColor: '#00f5ff',
+        backgroundColor: (ctx2) => {
+          const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, 260);
+          g.addColorStop(0, 'rgba(0,245,255,0.3)');
+          g.addColorStop(1, 'rgba(0,245,255,0)');
+          return g;
+        },
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#00f5ff',
+        pointBorderColor: 'rgba(0,0,0,0)',
+        pointHoverRadius: 6,
+      },
+      {
+        label: 'Humidity (%RH)',
+        data: humData,
+        borderColor: '#b44eff',
+        backgroundColor: (ctx2) => {
+          const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, 260);
+          g.addColorStop(0, 'rgba(180,78,255,0.25)');
+          g.addColorStop(1, 'rgba(180,78,255,0)');
+          return g;
+        },
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#b44eff',
+        pointBorderColor: 'rgba(0,0,0,0)',
+        pointHoverRadius: 6,
+      },
+    ],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(5,10,20,0.9)',
+        borderColor: 'rgba(0,245,255,0.3)',
+        borderWidth: 1,
+        titleColor: '#00f5ff',
+        bodyColor: '#e0f0ff',
+        titleFont: { family: 'Orbitron', size: 11 },
+        bodyFont: { family: 'Inter', size: 12 },
+        padding: 12,
+        callbacks: {
+          label: (c) => ` ${c.dataset.label}: ${c.parsed.y}`
+        }
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: 'rgba(0,245,255,0.05)', drawBorder: false },
+        ticks: { color: 'rgba(180,210,255,0.4)', font: { family: 'Inter', size: 10 }, maxTicksLimit: 8 },
+      },
+      y: {
+        grid: { color: 'rgba(0,245,255,0.05)', drawBorder: false },
+        ticks: { color: 'rgba(180,210,255,0.4)', font: { family: 'Inter', size: 10 } },
+      }
+    },
+    animation: { duration: 400 }
+  }
+});
+
+// Toast notifications
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { success:'✓', error:'✗', info:'◈' };
+  el.innerHTML = `<span>${icons[type]||'◈'}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// Get pin value
+async function getPin(pin) {
+  try {
+    const r = await fetch(`${BASE}/get?token=${TOKEN}&${pin}`);
+    if (!r.ok) throw new Error(r.status);
+    const val = await r.text();
+    return parseFloat(val.trim());
+  } catch(e) { return null; }
+}
+
+// Set pin value
+async function setPin(pin, val) {
+  const cb = document.getElementById(`toggle-${pin}`);
+  const label = document.getElementById(`label-${pin}`);
+  const card = document.getElementById(`card-${pin}`);
+  try {
+    const r = await fetch(`${BASE}/update?token=${TOKEN}&${pin}=${val}`);
+    if (!r.ok) throw new Error(r.status);
+    label.textContent = val ? 'ON' : 'OFF';
+    label.className = `toggle-label ${val ? 'on' : ''}`;
+    if (val) card.classList.add('active'); else card.classList.remove('active');
+    toast(`${pin} set to ${val ? 'ON' : 'OFF'}`, val ? 'success' : 'info');
+  } catch(e) {
+    cb.checked = !cb.checked;
+    toast(`Failed to update ${pin}`, 'error');
+  }
+}
+
+// Update gauge arc (SVG)
+function updateArc(id, value, min, max) {
+  const arc = document.getElementById(id);
+  if (!arc) return;
+  const pct = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const total = 157; // arc length
+  arc.setAttribute('stroke-dasharray', `${pct * total} ${total}`);
+}
+
+// Update sensors display
+function updateSensors(temp, hum, led, securityOn) {
+  // Temperature
+  if (temp !== null) {
+    document.getElementById('temp-val').textContent = temp.toFixed(1);
+    updateArc('temp-arc', temp, 0, 50);
+  }
+  // Humidity
+  if (hum !== null) {
+    document.getElementById('hum-val').textContent = hum.toFixed(1);
+    updateArc('hum-arc', hum, 0, 100);
+  }
+  // LED / Motion
+  const ledCircle = document.getElementById('led-circle');
+  const ledText = document.getElementById('led-text');
+  if (securityOn && led === 1) {
+    ledCircle.classList.add('active');
+    ledText.textContent = 'MOTION DETECTED';
+    ledText.className = 'led-text active';
+  } else {
+    ledCircle.classList.remove('active');
+    ledText.textContent = securityOn ? 'NO MOTION' : 'SECURITY OFF';
+    ledText.className = 'led-text';
+  }
+}
+
+// Push chart point
+function pushChart(temp, hum) {
+  const now = new Date();
+  const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  labels.push(t);
+  tempData.push(temp);
+  humData.push(hum);
+  if (labels.length > MAX_POINTS) {
+    labels.shift(); tempData.shift(); humData.shift();
+  }
+  chart.update('none');
+}
+
+// Fetch all state
+let securityOn = false;
+async function refreshAll() {
+  const [v0, v1, v2, v3] = await Promise.all([
+    getPin('V0'), getPin('V1'), getPin('V2'), getPin('V3')
+  ]);
+
+  // Update toggles
+  [['V0',v0],['V1',v1],['V2',v2],['V3',v3]].forEach(([pin, val]) => {
+    if (val === null) return;
+    const cb = document.getElementById(`toggle-${pin}`);
+    const label = document.getElementById(`label-${pin}`);
+    const card = document.getElementById(`card-${pin}`);
+    cb.checked = val === 1;
+    label.textContent = val ? 'ON' : 'OFF';
+    label.className = `toggle-label ${val ? 'on' : ''}`;
+    if (val) card.classList.add('active'); else card.classList.remove('active');
+  });
+
+  securityOn = v2 === 1;
+}
+
+async function refreshSensors() {
+  // These read sensor values — using GET endpoint pattern
+  const [temp, hum, led] = await Promise.all([
+    getPin('V5'), getPin('V6'), getPin('V4')
+  ]);
+
+  updateSensors(temp, hum, led, securityOn);
+  if (temp !== null && hum !== null) pushChart(temp, hum);
+}
+
+// Clock
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+// Initial load
+refreshAll();
+refreshSensors();
+
+// Auto refresh
+setInterval(refreshAll, 5000);
+setInterval(refreshSensors, 3000);
+
+// Demo data for chart on load (simulated)
+(function seedDemo() {
+  const now = new Date();
+  for (let i = MAX_POINTS; i > 0; i--) {
+    const t = new Date(now - i * 3000);
+    const tStr = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+    labels.push(tStr);
+    tempData.push(+(24 + Math.sin(i * 0.3) * 4 + Math.random()).toFixed(1));
+    humData.push(+(55 + Math.cos(i * 0.2) * 15 + Math.random() * 2).toFixed(1));
+  }
+  chart.update();
+})();
+</script>
+</body>
+</html>
